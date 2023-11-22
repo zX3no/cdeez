@@ -77,6 +77,21 @@ fn main() {
         return;
     }
 
+    match args[0].as_str() {
+        "--debug" => {
+            if let Ok(db) = db {
+                println!("cdeez: --debug");
+                for line in db.lines() {
+                    println!("{line}");
+                }
+            } else {
+                println!("cdeez: missing database");
+            }
+            return;
+        }
+        _ => {}
+    }
+
     let pwd = std::env::current_dir().unwrap();
     let new = pwd.join(&args[0]);
 
