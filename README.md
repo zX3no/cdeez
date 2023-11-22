@@ -1,6 +1,4 @@
-Zoxide, but instead of being 2000 lines it's 100.
-
-The program outputs the desired path.
+Zoxide, but instead of being 2000 lines it's 200.
 
 Nushell:
 
