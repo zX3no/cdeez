@@ -30,7 +30,7 @@ pub fn create_db(db: &str) -> Vec<Location> {
     locations
 }
 
-fn main() -> Result<(), &'static str> {
+fn main() {
     #[cfg(target_os = "windows")]
     let db_path = Path::new(&std::env::var("APPDATA").unwrap()).join(Path::new("cdeez\\cdeez.db"));
 
@@ -41,12 +41,10 @@ fn main() -> Result<(), &'static str> {
 
     //Make sure the directory exists.
     let _ = std::fs::create_dir(db_path.parent().unwrap());
-
     let db = std::fs::read_to_string(&db_path);
-
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() {
-        return Ok(());
+        std::process::exit(1);
     }
 
     let pwd = std::env::current_dir().unwrap();
@@ -54,7 +52,8 @@ fn main() -> Result<(), &'static str> {
 
     let Ok(db) = &db else {
         let Ok(path) = std::fs::canonicalize(&new) else {
-            return Err("cdeez: no match");
+            println!("cdeez: could not find {}", new.display());
+            std::process::exit(1);
         };
 
         let file = File::create(db_path.as_path()).unwrap();
@@ -63,18 +62,22 @@ fn main() -> Result<(), &'static str> {
         writer.write_all(path.to_str().unwrap().as_bytes()).unwrap();
         writer.write_all(b"\" ").unwrap();
         writer.write_all(b"1").unwrap();
-        return Ok(());
+        return;
     };
 
     let mut locations = create_db(&db);
 
     if locations.is_empty() {
         std::fs::remove_file(db_path).unwrap();
-        return Err("cdeez: database exists but is empty. this should not happen");
+        println!("cdeez: database exists but is empty. this should not happen");
+        std::process::exit(1);
     }
 
     let path = match std::fs::canonicalize(&new) {
-        Ok(path) if path.is_file() => return Err("cdeez: cannot cd into file"),
+        Ok(path) if path.is_file() => {
+            println!("cdeez: cannot cd file '{}'", new.display());
+            std::process::exit(1);
+        }
         //User wants to navigate to a directory in the current folder.
         Ok(path) => path,
         //User wants to go somewhere else.
@@ -89,20 +92,18 @@ fn main() -> Result<(), &'static str> {
             }
 
             let Some(path) = path else {
-                return Err("cdeez: no match found");
+                println!("cdeez: could not find '{}'", &args[0]);
+                std::process::exit(1);
             };
 
             path.to_path_buf()
         }
     };
 
-    //Send to nushell.
-    println!("{}", path.display());
-
     let file = File::create(db_path.as_path()).unwrap();
     let mut writer = BufWriter::new(file);
-
     let mut found = false;
+
     for location in locations.iter_mut() {
         if Path::new(&location.path) == path {
             location.count += 1;
@@ -126,5 +127,7 @@ fn main() -> Result<(), &'static str> {
         writer.write_all(b"\n").unwrap();
     }
 
-    Ok(())
+    //Output the path.
+    //TODO: Could this be made faster?
+    println!("{}", path.display());
 }
