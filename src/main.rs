@@ -87,7 +87,7 @@ fn main() {
             } else {
                 println!("cdeez: missing database");
             }
-            return;
+            std::process::exit(1);
         }
         _ => {}
     }
