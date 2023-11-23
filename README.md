@@ -4,11 +4,12 @@ Nushell:
 
 ```shell
 def --env __cd [...rest:string]  {
-    let output = (cdeez $rest)
+    let path = ($rest | path expand) # Turn '~' into C:/Users/<name>
+    let output = (cdeez $path)
+
     # TODO: Swap to exit codes when they work in Nushell.
     if ($output | str starts-with 'cdeez') {
-        # An error occured.
-        echo $output
+        echo $output # An error occured.
     } else {
         cd $output
     }
