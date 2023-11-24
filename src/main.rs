@@ -111,13 +111,14 @@ fn main() {
             let mut remove = false;
 
             for l in &locations {
-                let p = Path::new(l.path);
-                if l.count > count && p.ends_with(&args[0]) {
-                    if !p.exists() {
+                let lower = l.path.to_ascii_lowercase();
+                let target = Path::new(&lower);
+                if l.count > count && target.ends_with(&args[0].to_ascii_lowercase()) {
+                    if !target.exists() {
                         remove = true;
                     }
 
-                    path = Some(p);
+                    path = Some(Path::new(l.path));
                     count = l.count;
                 }
             }
