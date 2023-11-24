@@ -1,4 +1,4 @@
-#![feature(extract_if)]
+#![feature(extract_if, file_create_new)]
 use std::{
     fs::File,
     io::{BufWriter, Write},
@@ -11,7 +11,7 @@ struct Location<'a> {
     count: usize,
 }
 
-fn create_db(db: &str) -> Vec<Location> {
+fn read_db(db: &str) -> Vec<Location> {
     let lines = db.lines();
     let mut locations = Vec::new();
     for line in lines {
@@ -69,9 +69,11 @@ fn main() {
         .join(".config")
         .join(Path::new("cdeez\\cdeez.db"));
 
-    //Make sure the directory exists.
+    //Make sure the directory and database exists.
     let _ = std::fs::create_dir(db_path.parent().unwrap());
-    let db = std::fs::read_to_string(&db_path);
+    let _ = File::create_new(db_path.as_path());
+
+    let db = std::fs::read_to_string(&db_path).unwrap();
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.is_empty() {
         return;
@@ -79,13 +81,9 @@ fn main() {
 
     match args[0].as_str() {
         "--debug" => {
-            if let Ok(db) = db {
-                println!("cdeez: --debug");
-                for line in db.lines() {
-                    println!("{line}");
-                }
-            } else {
-                println!("cdeez: missing database");
+            println!("cdeez: --debug");
+            for line in db.lines() {
+                println!("{line}");
             }
             std::process::exit(1);
         }
@@ -94,24 +92,7 @@ fn main() {
 
     let pwd = std::env::current_dir().unwrap();
     let new = pwd.join(&args[0]);
-
-    let Ok(db) = &db else {
-        let Ok(path) = std::fs::canonicalize(&new) else {
-            println!("cdeez: could not find {}", new.display());
-            std::process::exit(1);
-        };
-
-        let file = File::create(db_path.as_path()).unwrap();
-        let mut writer = BufWriter::new(file);
-        writer.write_all(b"\"").unwrap();
-        writer.write_all(path.to_str().unwrap().as_bytes()).unwrap();
-        writer.write_all(b"\" ").unwrap();
-        writer.write_all(b"1").unwrap();
-        println!("{}", path.display());
-        return;
-    };
-
-    let mut locations = create_db(&db);
+    let mut locations = read_db(&db);
 
     let path = match std::fs::canonicalize(&new) {
         Ok(path) if path.is_file() => {

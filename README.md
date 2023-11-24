@@ -4,8 +4,13 @@ Nushell:
 
 ```shell
 def --env __cd [...rest:string]  {
-    let path = ($rest | path expand) # Turn '~' into C:/Users/<name>
-    let output = (cdeez $path)
+    let input = ($rest | str join)
+    let output = if ($input | str starts-with '~') {
+        # Turn '~' into C:/Users/<name>
+        (cdeez ($input | path expand))
+    } else {
+        (cdeez $input)
+    }
 
     # TODO: Swap to exit codes when they work in Nushell.
     if ($output | str starts-with 'cdeez') {
