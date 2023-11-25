@@ -1,4 +1,4 @@
-#![feature(extract_if, file_create_new)]
+#![feature(file_create_new)]
 use std::{
     fs::File,
     io::{BufWriter, Write},
@@ -47,13 +47,7 @@ fn write_config(path: &Path, db_path: &Path, mut locations: Vec<Location>) {
 
 #[cfg(target_os = "windows")]
 fn main() {
-    // #[cfg(target_os = "windows")]
     let db_path = Path::new(&std::env::var("APPDATA").unwrap()).join(Path::new("cdeez\\cdeez.db"));
-
-    // #[cfg(not(target_os = "windows"))]
-    // let path = Path::new(&std::env::var("HOME").unwrap())
-    //     .join(".config")
-    //     .join(Path::new("cdeez\\cdeez.db"));
 
     //Make sure the directory and database exists.
     let _ = std::fs::create_dir(db_path.parent().unwrap());
@@ -61,6 +55,7 @@ fn main() {
 
     let db = std::fs::read_to_string(&db_path).unwrap();
     let args: Vec<String> = std::env::args().skip(1).collect();
+
     if args.is_empty() {
         return;
     }
@@ -102,38 +97,38 @@ fn main() {
             let normalized = user_input.replace('\\', "/");
 
             let splits = if normalized.contains('/') {
-                let slashes: Vec<&str> = normalized.split('/').collect();
-                Some((slashes[0], slashes))
+                Some(normalized.split('/').collect::<Vec<&str>>())
             } else {
                 None
             };
 
-            'outer: for l in locations.iter_mut() {
+            'a: for l in locations.iter_mut() {
                 let lower = l.path.to_ascii_lowercase();
-                let target = Path::new(&lower);
+                let target = PathBuf::from(&lower);
 
-                //Handle cases where 'foo' exists in the database but 'foo/bar' does not.
-                if let Some((root, splits)) = &splits {
-                    if target.ends_with(root) {
-                        let mut p = PathBuf::from(target);
-                        for split in splits {
-                            p = p.join(split);
-                            if !p.exists() {
-                                continue 'outer;
-                            }
-                        }
-
-                        path = Some(p);
-                        break;
-                    }
-                } else if target.ends_with(&normalized) {
+                if target.ends_with(&normalized) && splits.is_none() {
                     if !target.exists() {
                         remove = true;
                     }
-
-                    path = Some(PathBuf::from(l.path));
+                    path = Some(target);
                     break;
                 }
+
+                let Some(splits) = &splits else {
+                    continue;
+                };
+
+                //Handle cases where 'foo' exists in the database but 'foo/bar' does not.
+                let mut p = target;
+                for split in splits {
+                    p = p.join(split);
+                    if !p.exists() {
+                        continue 'a;
+                    }
+                }
+
+                path = Some(p);
+                break;
             }
 
             let Some(path) = path else {
@@ -154,11 +149,10 @@ fn main() {
                 return;
             }
 
-            path.to_path_buf()
+            path
         }
     };
 
     write_config(&path, &db_path, locations);
     println!("{}", path.display());
-    std::process::exit(1);
 }
