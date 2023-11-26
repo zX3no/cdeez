@@ -1,4 +1,4 @@
-#![feature(file_create_new)]
+#![feature(file_create_new, slice_swap_unchecked)]
 use std::{
     fs::File,
     io::{BufWriter, Write},
@@ -6,11 +6,7 @@ use std::{
     str::from_utf8_unchecked,
 };
 
-#[derive(Debug)]
-struct Location<'a> {
-    path: &'a str,
-    count: usize,
-}
+use cdeez::*;
 
 fn read_db(db: &str) -> Vec<Location> {
     db.lines()
@@ -46,7 +42,10 @@ fn write_config(path: &Path, db_path: &Path, mut locations: Vec<Location>) {
 }
 
 #[cfg(target_os = "windows")]
+#[allow(unused)]
 fn main() {
+    return cdeez::fast();
+
     let db_path = Path::new(&std::env::var("APPDATA").unwrap()).join(Path::new("cdeez\\cdeez.db"));
 
     //Make sure the directory and database exists.
