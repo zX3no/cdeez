@@ -1,5 +1,7 @@
 Zoxide, but instead of being 2000 lines it's 200.
 
+Add this to your terminal config.
+
 Nushell:
 
 ```shell
@@ -21,4 +23,32 @@ def --env __cd [...rest:string]  {
 }
 
 alias cd = __cd
+```
+
+Powershell: 
+
+```powershell
+function global:__cd {
+    $input = $args -join ''
+    $output = if ($input -match '^~') {
+        # Turn '~' into C:/Users/<name>
+        $output = Resolve-Path -ErrorAction SilentlyContinue -ErrorVariable error $input
+        if ($error) {
+            Write-Error "Cannot find path '$input'"
+            return;
+        }
+        $output
+    } else {
+        $input
+    }
+
+    $result = cdeez $output
+    if ($result.StartsWith('cdeez')) {
+        Write-Output $result  # An error occurred.
+    } else {
+        Set-Location $result.Substring(4)
+    }
+}
+
+Set-Alias -Name cd -Value __cd -Option AllScope -Scope Global -Force
 ```
