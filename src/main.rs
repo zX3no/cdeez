@@ -42,9 +42,9 @@ fn write_config(path: &Path, db_path: &Path, mut locations: Vec<Location>) {
 }
 
 #[cfg(target_os = "windows")]
-#[allow(unused)]
+// #[allow(unused)]
 fn main() {
-    return cdeez::fast();
+    // return cdeez::fast();
 
     let db_path = Path::new(&std::env::var("APPDATA").unwrap()).join(Path::new("cdeez\\cdeez.db"));
 
@@ -137,7 +137,7 @@ fn main() {
             //Path exists in database but not on file system.
             if remove {
                 println!("cdeez: removing dead path '{}'", &args[0]);
-                locations.retain(|loc| Path::new(&loc.path) != path);
+                locations.retain(|loc| Path::new(&loc.path.to_ascii_lowercase()) != path);
 
                 //Update the config removing the dead path.
                 let file = File::create(db_path).expect("Unable to create file");
