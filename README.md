@@ -6,19 +6,11 @@ Nushell:
 
 ```shell
 def --env __cd [...rest:string]  {
-    let input = ($rest | str join)
-    let output = if ($input | str starts-with '~') {
-        # Turn '~' into C:/Users/<name>
-        (cdeez ($input | path expand))
+    let result = (cdeez ($rest | str join))
+    if ($result | str starts-with 'cdeez') {
+        echo $result # An error occured.
     } else {
-        (cdeez $input)
-    }
-
-    # TODO: Swap to exit codes when they work in Nushell.
-    if ($output | str starts-with 'cdeez') {
-        echo $output # An error occured.
-    } else {
-        cd $output
+        cd $result
     }
 }
 
@@ -29,22 +21,9 @@ Powershell:
 
 ```powershell
 function global:__cd {
-    $input = $args -join ''
-    $output = if ($input -match '^~') {
-        # Turn '~' into C:/Users/<name>
-        $output = Resolve-Path -ErrorAction SilentlyContinue -ErrorVariable error $input
-        if ($error) {
-            Write-Error "Cannot find path '$input'"
-            return;
-        }
-        $output
-    } else {
-        $input
-    }
-
-    $result = cdeez $output
+    $result = cdeez ($args -join '')
     if ($result.StartsWith('cdeez')) {
-        Write-Output $result  # An error occurred.
+        Write-Output $result # An error occurred.
     } else {
         Set-Location $result.Substring(4)
     }

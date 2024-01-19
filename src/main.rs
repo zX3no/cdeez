@@ -2,9 +2,35 @@
 use std::{
     fs::File,
     io::{BufWriter, Write},
+    os::windows::ffi::OsStringExt,
     path::{Path, PathBuf},
     str::from_utf8_unchecked,
 };
+
+const FOLDERID_PROFILE: GUID = GUID {
+    data1: 0x5E6C858F,
+    data2: 0x0E22,
+    data3: 0x4760,
+    data4: [0x9A, 0xFE, 0xEA, 0x33, 0x17, 0xB6, 0x71, 0x73],
+};
+
+#[repr(C)]
+struct GUID {
+    pub data1: u32,
+    pub data2: u16,
+    pub data3: u16,
+    pub data4: [u8; 8],
+}
+
+#[link(name = "shell32")]
+extern "system" {
+    fn SHGetKnownFolderPath(
+        rfid: *const GUID,
+        dwFlags: u32,
+        hToken: *mut std::ffi::c_void,
+        pszPath: *mut *mut u16,
+    ) -> i32;
+}
 
 #[derive(Debug)]
 struct Location<'a> {
@@ -54,13 +80,33 @@ fn main() {
     let _ = File::create_new(db_path.as_path());
 
     let db = std::fs::read_to_string(&db_path).unwrap();
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
 
     if args.is_empty() {
         return;
     }
 
-    if let "--list" = args[0].as_str() {
+    let td = if args[0].contains('~') {
+        let home = unsafe {
+            let mut path: *mut u16 = std::ptr::null_mut();
+            let result =
+                SHGetKnownFolderPath(&FOLDERID_PROFILE, 0, std::ptr::null_mut(), &mut path);
+            assert!(result == 0);
+            let slice = std::slice::from_raw_parts(path, {
+                let mut len = 0;
+                while *path.offset(len) != 0 {
+                    len += 1;
+                }
+                len as usize
+            });
+            std::ffi::OsString::from_wide(slice)
+        };
+        std::mem::take(&mut args[0]).replace('~', home.to_str().unwrap())
+    } else {
+        std::mem::take(&mut args[0])
+    };
+
+    if let "--list" = td.as_str() {
         println!("cdeez: --list");
         for line in db.lines() {
             println!("{line}");
@@ -69,13 +115,13 @@ fn main() {
     }
 
     let pwd = std::env::current_dir().unwrap();
-    let new = pwd.join(&args[0]);
+    let new = pwd.join(&td);
     let mut locations = read_db(&db);
 
     let path = match std::fs::canonicalize(&new) {
         //Files cannot contain ':', the user must want a drive.
-        _ if args[0].ends_with(':') && args[0].len() == 2 => {
-            let drive = format!("{}\\", &args[0]);
+        _ if td.ends_with(':') && td.len() == 2 => {
+            let drive = format!("{}\\", &td);
             match std::fs::canonicalize(&drive) {
                 Ok(path) => path,
                 Err(_) => return println!("cdeez: cannot cd drive '{}'", drive),
@@ -94,7 +140,7 @@ fn main() {
             let mut remove = false;
 
             //TODO: Linux paths are case sensitive. 🙄
-            let user_input = &args[0].to_ascii_lowercase();
+            let user_input = &td.to_ascii_lowercase();
             let normalized = user_input.replace('\\', "/");
 
             let splits = if normalized.contains('/') {
@@ -136,8 +182,8 @@ fn main() {
                 path
             } else {
                 //If the user entered a letter a..z they most likely wanted a drive.
-                let lowercase = args[0].as_bytes()[0].to_ascii_lowercase();
-                if args[0].len() == 1 && matches!(lowercase, b'a'..=b'z') {
+                let lowercase = td.as_bytes()[0].to_ascii_lowercase();
+                if td.len() == 1 && matches!(lowercase, b'a'..=b'z') {
                     let path = format!("{}:\\", lowercase as char);
                     match std::fs::canonicalize(&path) {
                         Ok(path) => path,
@@ -150,7 +196,7 @@ fn main() {
 
             //Path exists in database but not on file system.
             if remove {
-                println!("cdeez: removing dead path '{}'", &args[0]);
+                println!("cdeez: removing dead path '{}'", &td);
                 locations.retain(|loc| Path::new(&loc.path.to_ascii_lowercase()) != path);
 
                 //Update the config removing the dead path.
