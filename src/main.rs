@@ -131,8 +131,20 @@ fn main() {
                 break;
             }
 
-            let Some(path) = path else {
-                return println!("cdeez: could not find '{}'", &args[0]);
+            let path = if let Some(path) = path {
+                path
+            } else {
+                //If the user entered a letter a..z they most likely wanted a drive.
+                let lowercase = args[0].as_bytes()[0].to_ascii_lowercase();
+                if args[0].len() == 1 && matches!(lowercase, b'a'..=b'z') {
+                    let path = format!("{}:\\", lowercase as char);
+                    match std::fs::canonicalize(&path) {
+                        Ok(path) => path,
+                        Err(_) => return println!("cdeez: cannot cd file '{}'", path),
+                    }
+                } else {
+                    return println!("cdeez: cannot cd file '{}'", new.display());
+                }
             };
 
             //Path exists in database but not on file system.
