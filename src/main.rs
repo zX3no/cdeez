@@ -75,9 +75,10 @@ fn main() {
     let path = match std::fs::canonicalize(&new) {
         //Files cannot contain ':', the user must want a drive.
         _ if args[0].ends_with(':') && args[0].len() == 2 => {
-            match std::fs::canonicalize(format!("{}\\", &args[0])) {
+            let drive = format!("{}\\", &args[0]);
+            match std::fs::canonicalize(&drive) {
                 Ok(path) => path,
-                Err(_) => return println!("cdeez: cannot cd file '{}'", new.display()),
+                Err(_) => return println!("cdeez: cannot cd drive '{}'", drive),
             }
         }
         Ok(path) if path.is_file() => {
@@ -140,7 +141,7 @@ fn main() {
                     let path = format!("{}:\\", lowercase as char);
                     match std::fs::canonicalize(&path) {
                         Ok(path) => path,
-                        Err(_) => return println!("cdeez: cannot cd file '{}'", path),
+                        Err(_) => return println!("cdeez: cannot cd drive '{}'", path),
                     }
                 } else {
                     return println!("cdeez: cannot cd file '{}'", new.display());
