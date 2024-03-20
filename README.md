@@ -1,7 +1,7 @@
-Zoxide, but instead of being 2000 lines it's 200.
-
 > [!WARNING]  
 > Windows only.
+
+Zoxide, but instead of being 2000 lines it's 200.
 
 Add this to your terminal config.
 
