@@ -1,5 +1,8 @@
 Zoxide, but instead of being 2000 lines it's 200.
 
+> [!WARNING]  
+> Windows only.
+
 Add this to your terminal config.
 
 Nushell:
