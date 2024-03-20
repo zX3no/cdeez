@@ -6,7 +6,7 @@ Nushell:
 
 ```shell
 def --env __cd [...rest:string]  {
-    let result = (cdeez ($rest | str join))
+    let result = (cdeez ($rest | str join " "))
     if ($result | str starts-with 'cdeez') {
         echo $result # An error occured.
     } else {
@@ -21,7 +21,7 @@ Powershell:
 
 ```powershell
 function global:__cd {
-    $result = cdeez ($args -join '')
+    $result = cdeez ($args -join ' ')
     if ($result.StartsWith('cdeez')) {
         Write-Output $result # An error occurred.
     } else {

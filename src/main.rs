@@ -1,4 +1,3 @@
-#![feature(file_create_new)]
 use std::{
     fs::File,
     io::{BufWriter, Write},
@@ -80,13 +79,13 @@ fn main() {
     let _ = File::create_new(db_path.as_path());
 
     let db = std::fs::read_to_string(&db_path).unwrap();
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: String = std::env::args().skip(1).collect::<Vec<String>>().join(" ");
 
     if args.is_empty() {
         return;
     }
 
-    let td = if args[0].contains('~') {
+    let td = if args.contains('~') {
         let home = unsafe {
             let mut path: *mut u16 = std::ptr::null_mut();
             let result =
@@ -101,9 +100,9 @@ fn main() {
             });
             std::ffi::OsString::from_wide(slice)
         };
-        std::mem::take(&mut args[0]).replace('~', home.to_str().unwrap())
+        std::mem::take(&mut args).replace('~', home.to_str().unwrap())
     } else {
-        std::mem::take(&mut args[0])
+        std::mem::take(&mut args)
     };
 
     if let "--list" = td.as_str() {
