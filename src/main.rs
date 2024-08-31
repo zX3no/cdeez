@@ -5,73 +5,6 @@ use std::{
     str::from_utf8_unchecked,
 };
 
-#[cfg(target_os = "windows")]
-mod windows {
-    use std::{ffi::OsString, os::windows::ffi::OsStringExt};
-
-    const FOLDERID_PROFILE: GUID = GUID {
-        data1: 0x5E6C858F,
-        data2: 0x0E22,
-        data3: 0x4760,
-        data4: [0x9A, 0xFE, 0xEA, 0x33, 0x17, 0xB6, 0x71, 0x73],
-    };
-
-    #[repr(C)]
-    struct GUID {
-        pub data1: u32,
-        pub data2: u16,
-        pub data3: u16,
-        pub data4: [u8; 8],
-    }
-
-    #[link(name = "shell32")]
-    extern "system" {
-        fn SHGetKnownFolderPath(
-            rfid: *const GUID,
-            dwFlags: u32,
-            hToken: *mut std::ffi::c_void,
-            pszPath: *mut *mut u16,
-        ) -> i32;
-    }
-
-    pub fn home() -> OsString {
-        unsafe {
-            let mut path: *mut u16 = std::ptr::null_mut();
-            let result =
-                SHGetKnownFolderPath(&FOLDERID_PROFILE, 0, std::ptr::null_mut(), &mut path);
-            assert!(result == 0);
-            let slice = std::slice::from_raw_parts(path, {
-                let mut len = 0;
-                while *path.offset(len) != 0 {
-                    len += 1;
-                }
-                len as usize
-            });
-            std::ffi::OsString::from_wide(slice)
-        }
-    }
-
-    pub fn td() -> String {
-        let db_path =
-            Path::new(&std::env::var("APPDATA").unwrap()).join(Path::new("cdeez\\cdeez.db"));
-
-        //Make sure the directory and database exists.
-        let _ = std::fs::create_dir(db_path.parent().unwrap());
-        let _ = File::create_new(db_path.as_path());
-        let db = std::fs::read_to_string(&db_path).unwrap();
-
-        let home = home();
-
-        let td = if args.contains('~') {
-            args.replace('~', home.to_str().unwrap())
-        } else {
-            args
-        };
-
-        td
-    }
-}
-
 #[derive(Debug)]
 struct Location<'a> {
     path: &'a str,
@@ -118,9 +51,6 @@ fn main() {
         return;
     }
 
-    // #[cfg(target_os = "windows")]
-    // let td = windows::td();
-
     #[cfg(target_os = "macos")]
     let (home, db, db_path) = {
         let home = home::home_dir().unwrap();
@@ -133,6 +63,60 @@ fn main() {
         let db = fs::read_to_string(&db_path).unwrap();
 
         (home, db, db_path)
+    };
+
+    #[cfg(target_os = "windows")]
+    let (home, db, db_path) = {
+        // use std::os::windows::ffi::OsStringExt;
+        // pub const FOLDERID_PROFILE: GUID = GUID {
+        //     data1: 0x5E6C858F,
+        //     data2: 0x0E22,
+        //     data3: 0x4760,
+        //     data4: [0x9A, 0xFE, 0xEA, 0x33, 0x17, 0xB6, 0x71, 0x73],
+        // };
+
+        // #[repr(C)]
+        // pub struct GUID {
+        //     pub data1: u32,
+        //     pub data2: u16,
+        //     pub data3: u16,
+        //     pub data4: [u8; 8],
+        // }
+
+        // #[link(name = "shell32")]
+        // extern "system" {
+        //     pub fn SHGetKnownFolderPath(
+        //         rfid: *const GUID,
+        //         dwFlags: u32,
+        //         hToken: *mut std::ffi::c_void,
+        //         pszPath: *mut *mut u16,
+        //     ) -> i32;
+        // }
+
+        // let home = unsafe {
+        //     let mut path: *mut u16 = std::ptr::null_mut();
+        //     let result =
+        //         SHGetKnownFolderPath(&FOLDERID_PROFILE, 0, std::ptr::null_mut(), &mut path);
+        //     assert!(result == 0);
+        //     let slice = std::slice::from_raw_parts(path, {
+        //         let mut len = 0;
+        //         while *path.offset(len) != 0 {
+        //             len += 1;
+        //         }
+        //         len as usize
+        //     });
+        //     std::ffi::OsString::from_wide(slice)
+        // };
+
+        let home = std::env::var("APPDATA").unwrap();
+        let db_path = Path::new(&home).join(Path::new("cdeez\\cdeez.db"));
+
+        //Make sure the directory and database exists.
+        let _ = fs::create_dir(db_path.parent().unwrap());
+        let _ = fs::File::create_new(db_path.as_path());
+        let db = fs::read_to_string(&db_path).unwrap();
+
+        (PathBuf::from(home), db, db_path)
     };
 
     let td = args.replace("~", home.to_str().unwrap());
