@@ -1,34 +1,75 @@
 use std::{
-    fs::File,
+    fs::{self, File},
     io::{BufWriter, Write},
-    os::windows::ffi::OsStringExt,
     path::{Path, PathBuf},
     str::from_utf8_unchecked,
 };
 
-const FOLDERID_PROFILE: GUID = GUID {
-    data1: 0x5E6C858F,
-    data2: 0x0E22,
-    data3: 0x4760,
-    data4: [0x9A, 0xFE, 0xEA, 0x33, 0x17, 0xB6, 0x71, 0x73],
-};
+#[cfg(target_os = "windows")]
+mod windows {
+    use std::{ffi::OsString, os::windows::ffi::OsStringExt};
 
-#[repr(C)]
-struct GUID {
-    pub data1: u32,
-    pub data2: u16,
-    pub data3: u16,
-    pub data4: [u8; 8],
-}
+    const FOLDERID_PROFILE: GUID = GUID {
+        data1: 0x5E6C858F,
+        data2: 0x0E22,
+        data3: 0x4760,
+        data4: [0x9A, 0xFE, 0xEA, 0x33, 0x17, 0xB6, 0x71, 0x73],
+    };
 
-#[link(name = "shell32")]
-extern "system" {
-    fn SHGetKnownFolderPath(
-        rfid: *const GUID,
-        dwFlags: u32,
-        hToken: *mut std::ffi::c_void,
-        pszPath: *mut *mut u16,
-    ) -> i32;
+    #[repr(C)]
+    struct GUID {
+        pub data1: u32,
+        pub data2: u16,
+        pub data3: u16,
+        pub data4: [u8; 8],
+    }
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn SHGetKnownFolderPath(
+            rfid: *const GUID,
+            dwFlags: u32,
+            hToken: *mut std::ffi::c_void,
+            pszPath: *mut *mut u16,
+        ) -> i32;
+    }
+
+    pub fn home() -> OsString {
+        unsafe {
+            let mut path: *mut u16 = std::ptr::null_mut();
+            let result =
+                SHGetKnownFolderPath(&FOLDERID_PROFILE, 0, std::ptr::null_mut(), &mut path);
+            assert!(result == 0);
+            let slice = std::slice::from_raw_parts(path, {
+                let mut len = 0;
+                while *path.offset(len) != 0 {
+                    len += 1;
+                }
+                len as usize
+            });
+            std::ffi::OsString::from_wide(slice)
+        }
+    }
+
+    pub fn td() -> String {
+        let db_path =
+            Path::new(&std::env::var("APPDATA").unwrap()).join(Path::new("cdeez\\cdeez.db"));
+
+        //Make sure the directory and database exists.
+        let _ = std::fs::create_dir(db_path.parent().unwrap());
+        let _ = File::create_new(db_path.as_path());
+        let db = std::fs::read_to_string(&db_path).unwrap();
+
+        let home = home();
+
+        let td = if args.contains('~') {
+            args.replace('~', home.to_str().unwrap())
+        } else {
+            args
+        };
+
+        td
+    }
 }
 
 #[derive(Debug)]
@@ -70,40 +111,31 @@ fn write_config(path: &Path, db_path: &Path, mut locations: Vec<Location>) {
     }
 }
 
-#[cfg(target_os = "windows")]
 fn main() {
-    let mut args: String = std::env::args().skip(1).collect::<Vec<String>>().join(" ");
+    let args: String = std::env::args().skip(1).collect::<Vec<String>>().join(" ");
 
     if args.is_empty() {
         return;
     }
 
-    let db_path = Path::new(&std::env::var("APPDATA").unwrap()).join(Path::new("cdeez\\cdeez.db"));
+    // #[cfg(target_os = "windows")]
+    // let td = windows::td();
 
-    //Make sure the directory and database exists.
-    let _ = std::fs::create_dir(db_path.parent().unwrap());
-    let _ = File::create_new(db_path.as_path());
-    let db = std::fs::read_to_string(&db_path).unwrap();
+    #[cfg(target_os = "macos")]
+    let (home, db, db_path) = {
+        let home = home::home_dir().unwrap();
+        let mut db_path = home.clone();
+        db_path.push(".config/cdeez");
+        db_path.push("cdeez.db");
 
-    let td = if args.contains('~') {
-        let home = unsafe {
-            let mut path: *mut u16 = std::ptr::null_mut();
-            let result =
-                SHGetKnownFolderPath(&FOLDERID_PROFILE, 0, std::ptr::null_mut(), &mut path);
-            assert!(result == 0);
-            let slice = std::slice::from_raw_parts(path, {
-                let mut len = 0;
-                while *path.offset(len) != 0 {
-                    len += 1;
-                }
-                len as usize
-            });
-            std::ffi::OsString::from_wide(slice)
-        };
-        std::mem::take(&mut args).replace('~', home.to_str().unwrap())
-    } else {
-        std::mem::take(&mut args)
+        let _ = fs::create_dir(db_path.parent().unwrap());
+        let _ = fs::File::create_new(db_path.as_path());
+        let db = fs::read_to_string(&db_path).unwrap();
+
+        (home, db, db_path)
     };
+
+    let td = args.replace("~", home.to_str().unwrap());
 
     if let "--list" = td.as_str() {
         println!("cdeez: --list");
@@ -148,7 +180,7 @@ fn main() {
                 None
             };
 
-            'a: for l in locations.iter_mut() {
+            'l: for l in locations.iter_mut() {
                 let lower = l.path.to_ascii_lowercase();
                 let target = PathBuf::from(&lower);
 
@@ -169,7 +201,7 @@ fn main() {
                 for split in splits {
                     p = p.join(split);
                     if !p.exists() {
-                        continue 'a;
+                        continue 'l;
                     }
                 }
 
@@ -211,6 +243,6 @@ fn main() {
         }
     };
 
-    write_config(&path, &db_path, locations);
     println!("{}", path.display());
+    write_config(&path, &db_path, locations);
 }
