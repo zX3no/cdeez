@@ -67,47 +67,6 @@ fn main() {
 
     #[cfg(target_os = "windows")]
     let (home, db, db_path) = {
-        // use std::os::windows::ffi::OsStringExt;
-        // pub const FOLDERID_PROFILE: GUID = GUID {
-        //     data1: 0x5E6C858F,
-        //     data2: 0x0E22,
-        //     data3: 0x4760,
-        //     data4: [0x9A, 0xFE, 0xEA, 0x33, 0x17, 0xB6, 0x71, 0x73],
-        // };
-
-        // #[repr(C)]
-        // pub struct GUID {
-        //     pub data1: u32,
-        //     pub data2: u16,
-        //     pub data3: u16,
-        //     pub data4: [u8; 8],
-        // }
-
-        // #[link(name = "shell32")]
-        // extern "system" {
-        //     pub fn SHGetKnownFolderPath(
-        //         rfid: *const GUID,
-        //         dwFlags: u32,
-        //         hToken: *mut std::ffi::c_void,
-        //         pszPath: *mut *mut u16,
-        //     ) -> i32;
-        // }
-
-        // let home = unsafe {
-        //     let mut path: *mut u16 = std::ptr::null_mut();
-        //     let result =
-        //         SHGetKnownFolderPath(&FOLDERID_PROFILE, 0, std::ptr::null_mut(), &mut path);
-        //     assert!(result == 0);
-        //     let slice = std::slice::from_raw_parts(path, {
-        //         let mut len = 0;
-        //         while *path.offset(len) != 0 {
-        //             len += 1;
-        //         }
-        //         len as usize
-        //     });
-        //     std::ffi::OsString::from_wide(slice)
-        // };
-
         let home = std::env::var("APPDATA").unwrap();
         let db_path = Path::new(&home).join(Path::new("cdeez\\cdeez.db"));
 
@@ -162,14 +121,7 @@ fn main() {
             let mut path = None;
             let mut remove = false;
 
-            // #[cfg(target_os = "linux")]
-            // let user_input = &td;
-
-            #[cfg(target_os = "macos")]
-            let user_input = &td.to_ascii_lowercase();
-
-            #[cfg(target_os = "windows")]
-            let user_input = &td.to_ascii_lowercase().replace("\\", "/");
+            let user_input = &td.replace("\\", "/");
 
             let splits: Option<Vec<&str>> = user_input
                 .contains('/')
@@ -183,7 +135,9 @@ fn main() {
                     if !target.exists() {
                         remove = true;
                     }
-                    path = Some(target);
+
+                    //Make sure to use `target`, and keep the original case.
+                    path = Some(PathBuf::from(l.path));
                     break;
                 }
 
@@ -192,7 +146,8 @@ fn main() {
                 };
 
                 //Handle cases where 'foo' exists in the database but 'foo/bar' does not.
-                let mut p = target;
+                //What did I mean by this ^
+                let mut p = PathBuf::from(l.path);
                 for split in splits {
                     p = p.join(split);
                     if !p.exists() {
