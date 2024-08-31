@@ -207,7 +207,7 @@ fn main() {
             #[cfg(target_os = "macos")]
             let path = match path {
                 Some(path) => path,
-                None => return println!("cdeez: cannot cd to folder '{}'", target_path.display()),
+                None => return println!("cdeez: cannot find folder '{}'", target_path.display()),
             };
 
             #[cfg(target_os = "windows")]
@@ -223,7 +223,7 @@ fn main() {
                         Err(_) => return println!("cdeez: cannot cd drive '{}'", path),
                     }
                 } else {
-                    return println!("cdeez: cannot cd folder '{}'", target_path.display());
+                    return println!("cdeez: cannot find folder '{}'", target_path.display());
                 }
             };
 
