@@ -129,23 +129,29 @@ fn main() {
         return;
     }
 
-    let pwd = std::env::current_dir().unwrap();
-    let new = pwd.join(&td);
+    //Check if the path is absolute (~/, /Users/) before adding the current directory to it.
+    //user type cdeez, pwd is /Users/Desktop, the user wants /Users/Desktop/cdeez.
+    //There might be issues with this.
+    let target_path = match Path::new(&td).exists() {
+        true => PathBuf::from(&td),
+        false => std::env::current_dir().unwrap().join(&td),
+    };
+
     let mut locations = read_db(&db);
 
-    let path = match std::fs::canonicalize(&new) {
+    let path = match fs::canonicalize(&target_path) {
         //Files cannot contain ':', the user must want a drive.
         //I don't know how this shit works on apples.
         #[cfg(target_os = "windows")]
         _ if td.ends_with(':') && td.len() == 2 => {
             let drive = format!("{}\\", &td);
-            match std::fs::canonicalize(&drive) {
+            match fs::canonicalize(&drive) {
                 Ok(path) => path,
                 Err(_) => return println!("cdeez: cannot cd drive '{}'", drive),
             }
         }
         Ok(path) if path.is_file() => {
-            println!("cdeez: cannot cd file '{}'", new.display());
+            println!("cdeez: cannot cd to file '{}'", target_path.display());
             locations.retain(|loc| Path::new(&loc.path) != path);
             return write_config(&path, &db_path, locations);
         }
@@ -201,7 +207,7 @@ fn main() {
             #[cfg(target_os = "macos")]
             let path = match path {
                 Some(path) => path,
-                None => return println!("cdeez: cannot cd file '{}'", new.display()),
+                None => return println!("cdeez: cannot cd to folder '{}'", target_path.display()),
             };
 
             #[cfg(target_os = "windows")]
@@ -212,12 +218,12 @@ fn main() {
                 let lowercase = td.as_bytes()[0].to_ascii_lowercase();
                 if td.len() == 1 && matches!(lowercase, b'a'..=b'z') {
                     let path = format!("{}:\\", lowercase as char);
-                    match std::fs::canonicalize(&path) {
+                    match fs::canonicalize(&path) {
                         Ok(path) => path,
                         Err(_) => return println!("cdeez: cannot cd drive '{}'", path),
                     }
                 } else {
-                    return println!("cdeez: cannot cd file '{}'", new.display());
+                    return println!("cdeez: cannot cd folder '{}'", target_path.display());
                 }
             };
 
