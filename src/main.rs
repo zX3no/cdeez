@@ -72,18 +72,18 @@ fn write_config(path: &Path, db_path: &Path, mut locations: Vec<Location>) {
 
 #[cfg(target_os = "windows")]
 fn main() {
-    let db_path = Path::new(&std::env::var("APPDATA").unwrap()).join(Path::new("cdeez\\cdeez.db"));
-
-    //Make sure the directory and database exists.
-    let _ = std::fs::create_dir(db_path.parent().unwrap());
-    let _ = File::create_new(db_path.as_path());
-
-    let db = std::fs::read_to_string(&db_path).unwrap();
     let mut args: String = std::env::args().skip(1).collect::<Vec<String>>().join(" ");
 
     if args.is_empty() {
         return;
     }
+
+    let db_path = Path::new(&std::env::var("APPDATA").unwrap()).join(Path::new("cdeez\\cdeez.db"));
+
+    //Make sure the directory and database exists.
+    let _ = std::fs::create_dir(db_path.parent().unwrap());
+    let _ = File::create_new(db_path.as_path());
+    let db = std::fs::read_to_string(&db_path).unwrap();
 
     let td = if args.contains('~') {
         let home = unsafe {
