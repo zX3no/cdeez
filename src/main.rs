@@ -135,6 +135,8 @@ fn main() {
 
     let path = match std::fs::canonicalize(&new) {
         //Files cannot contain ':', the user must want a drive.
+        //I don't know how this shit works on apples.
+        #[cfg(target_os = "windows")]
         _ if td.ends_with(':') && td.len() == 2 => {
             let drive = format!("{}\\", &td);
             match std::fs::canonicalize(&drive) {
@@ -154,21 +156,24 @@ fn main() {
             let mut path = None;
             let mut remove = false;
 
-            //TODO: Linux paths are case sensitive. 🙄
-            let user_input = &td.to_ascii_lowercase();
-            let normalized = user_input.replace('\\', "/");
+            // #[cfg(target_os = "linux")]
+            // let user_input = &td;
 
-            let splits = if normalized.contains('/') {
-                Some(normalized.split('/').collect::<Vec<&str>>())
-            } else {
-                None
-            };
+            #[cfg(target_os = "macos")]
+            let user_input = &td.to_ascii_lowercase();
+
+            #[cfg(target_os = "windows")]
+            let user_input = &td.to_ascii_lowercase().replace("\\", "/");
+
+            let splits: Option<Vec<&str>> = user_input
+                .contains('/')
+                .then(|| user_input.split('/').collect());
 
             'l: for l in locations.iter_mut() {
                 let lower = l.path.to_ascii_lowercase();
                 let target = PathBuf::from(&lower);
 
-                if target.ends_with(&normalized) && splits.is_none() {
+                if target.ends_with(&user_input) && splits.is_none() {
                     if !target.exists() {
                         remove = true;
                     }
@@ -193,6 +198,13 @@ fn main() {
                 break;
             }
 
+            #[cfg(target_os = "macos")]
+            let path = match path {
+                Some(path) => path,
+                None => return println!("cdeez: cannot cd file '{}'", new.display()),
+            };
+
+            #[cfg(target_os = "windows")]
             let path = if let Some(path) = path {
                 path
             } else {
