@@ -185,7 +185,7 @@ fn main() {
             //Path exists in database but not on file system.
             if remove {
                 println!("cdeez: removing dead path '{}'", &td);
-                locations.retain(|loc| Path::new(&loc.path.to_ascii_lowercase()) != path);
+                locations.retain(|loc| Path::new(&loc.path) != path);
 
                 //Update the config removing the dead path.
                 let file = File::create(db_path).expect("Unable to create file");
