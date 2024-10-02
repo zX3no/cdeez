@@ -1,5 +1,5 @@
 > [!WARNING]  
-> Windows only.
+> Windows and MacOS only.
 
 Zoxide, but instead of being 2000 lines it's 200.
 
@@ -33,4 +33,19 @@ function global:__cd {
 }
 
 Set-Alias -Name cd -Value __cd -Option AllScope -Scope Global -Force
+```
+
+Zsh:
+
+```bash
+function __cd() {
+    result=$(cdeez "$@")
+    if [[ $result == cdeez* ]]; then
+        echo "$result" # An error occurred.
+    else
+        builtin cd "${result}"
+    fi
+}
+
+alias cd="__cd"
 ```
